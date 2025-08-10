@@ -23,3 +23,4 @@ class Song:
             artist=data["artist"],
             plays=data.get("plays", 0)
         )
+    

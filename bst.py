@@ -1,3 +1,4 @@
+import json
 class BSTnode: #key is song.title
     def __init__(self, key, song):
         self.key = song.title
@@ -74,3 +75,18 @@ class SongBST:
         all_songs = self.in_order()
         all_songs.sort(key=lambda song: song.plays, reverse=True)
         return all_songs[:n]
+    #persistance automated
+    def save_library(self):
+        songs = self.in_order()  # List of Song objects
+        data = [song.to_dict() for song in songs]
+        with open(self.filename, "w") as f:
+            json.dump(data, f, indent=4)
+
+    def load_library(self):
+        try:
+            with open(self.filename, "r") as f:
+                data = json.load(f)
+            for song_data in data:
+                self.insert(Song.from_dict(song_data), save=False)  # Avoid recursive saving
+        except FileNotFoundError:
+            print("No library file found, starting with an empty BST.")
