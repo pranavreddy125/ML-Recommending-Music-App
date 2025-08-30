@@ -1,43 +1,44 @@
-# bst_titles.py — BST keyed by song.title (alphabetical)
-# Keeps your comments and overall structure, just fixes logic/typos.
+# bst.py — BST keyed by song.song_id (string)
+# Same structure as before, but comparisons now use song_id instead of title.
 
 import json
 from song import Song  # make sure song.py is in your module path
 
 class BSTNode:
     def __init__(self, key, song):
-        self.key = key        # song.title (string)
+        self.key = str(key)   # song_id (string)
         self.song = song      # the actual Song object
         self.left = None
         self.right = None
 
-class SongBSTByTitle:
+class SongBST:
     def __init__(self, filename="library.json"):
         self.root = None
         self.filename = filename
 
     # INSERT (recursive)
     def insert(self, song):
-        # keep: key is title; we store the Song
+        # key is song_id; we store the Song
         def rec_insert(node, song):
             if node is None:
-                return BSTNode(song.title, song) 
-            if song.title < node.key:
+                return BSTNode(song.song_id, song)
+            if song.song_id < node.key:
                 node.left = rec_insert(node.left, song)
-            elif song.title > node.key:
+            elif song.song_id > node.key:
                 node.right = rec_insert(node.right, song)
             else:
-                # same title → replace existing song record
+                # same id → replace existing song record
                 node.song = song
             return node
         self.root = rec_insert(self.root, song)
 
-    # SEARCH (recursive, by key = title)
-    def search(self, key):
+    # SEARCH (recursive, by key = song_id)
+    def find(self, song_id):
+        key = str(song_id)
         def rec_search(node, key):
             if node is None:
                 return None
-            if key == node.key:  # figure
+            if key == node.key:
                 return node.song
             elif key < node.key:
                 return rec_search(node.left, key)
@@ -45,26 +46,27 @@ class SongBSTByTitle:
                 return rec_search(node.right, key)
         return rec_search(self.root, key)
 
-    # DELETE (recursive, by key = title)
-    def delete(self, key):
+    # DELETE (recursive, by key = song_id)
+    def delete(self, song_id):
+        key = str(song_id)
         def rec_delete(node, key):
             if node is None:
-                return None
+                return None, False
             # compare key vs node.key in the same direction as search
             if key < node.key:
-                node.left = rec_delete(node.left, key)
-                return node
+                node.left, removed = rec_delete(node.left, key)
+                return node, removed
             elif key > node.key:
-                node.right = rec_delete(node.right, key)
-                return node
+                node.right, removed = rec_delete(node.right, key)
+                return node, removed
             else:
                 # found node to delete
                 if node.left is None and node.right is None:
-                    return None
+                    return None, True
                 if node.left is None:
-                    return node.right
+                    return node.right, True
                 if node.right is None:
-                    return node.left
+                    return node.left, True
                 # Node has two children: find inorder successor
                 succ_parent = node
                 succ = node.right
@@ -76,27 +78,27 @@ class SongBSTByTitle:
                 node.song = succ.song
                 # delete successor from right subtree
                 if succ_parent.left is succ:
-                    succ_parent.left = rec_delete(succ_parent.left, succ.key)
+                    succ_parent.left, _ = rec_delete(succ_parent.left, succ.key)
                 else:
-                    succ_parent.right = rec_delete(succ_parent.right, succ.key)
-                return node
-        self.root = rec_delete(self.root, key)
+                    succ_parent.right, _ = rec_delete(succ_parent.right, succ.key)
+                return node, True
+        self.root, _ = rec_delete(self.root, key)
 
-    def in_order(self):  # sorting title by alphabet
+    def inorder(self):  # sorting by song_id
         result = []
-        def rec_in_order(node):
+        def rec_inorder(node):
             if node:
-                rec_in_order(node.left)
-                result.append(node.song)  # Or node.key if you only want titles
-                rec_in_order(node.right)
-        rec_in_order(self.root)
+                rec_inorder(node.left)
+                result.append(node.song)  # Or node.key if you only want ids
+                rec_inorder(node.right)
+        rec_inorder(self.root)
         return result
 
     def get_all_by_artist(self, artist_name):
         ans = []
         def rec_get_all_by_artist(node):
             if node:
-                rec_get_all_by_artist(node.left)    # in order so uses alphabetical order also but doesn't matter
+                rec_get_all_by_artist(node.left)
                 if node.song.artist == artist_name:
                     ans.append(node.song)
                 rec_get_all_by_artist(node.right)
@@ -104,7 +106,7 @@ class SongBSTByTitle:
         return ans
 
     def most_played(self, n):
-        all_songs = self.in_order()
+        all_songs = self.inorder()
         all_songs.sort(key=lambda song: song.plays, reverse=True)
         return all_songs[:n]
 
@@ -113,14 +115,14 @@ class SongBSTByTitle:
     whole tree (entire library of songs) is saved/loaded at once
     '''
     def save_library(self):
-        songs = self.in_order()  # List of Song objects
-        data = [song.to_dict() for song in songs] #turn each song into dict
+        songs = self.inorder()  # List of Song objects
+        data = [song.to_dict() for song in songs]  # turn each song into dict
         with open(self.filename, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4, ensure_ascii=False) #put into .json
+            json.dump(data, f, indent=4, ensure_ascii=False)  # put into .json
 
     def load_library(self):
         try:
-            with open(self.filename, "r", encoding="utf-8") as f: #open json and reverse the process
+            with open(self.filename, "r", encoding="utf-8") as f:  # open json and reverse the process
                 data = json.load(f)
             for song_data in data:
                 self.insert(Song.from_dict(song_data))
