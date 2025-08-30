@@ -1,17 +1,14 @@
-
 class Song:
-    """A single track. Very simple, so it's easy to read and extend later."""
-
+    """A single track"""
     def __init__(self, song_id, title, artist, album="", genres=None, duration=0,
                  plays=0, rank=0, bpm=None):
-        # ---- required fields
         if song_id is None:
             raise ValueError("song_id cannot be None")
-        self.song_id = str(song_id)   # use string keys everywhere
-        self.title = title or ""
+        self.song_id = str(song_id)   # use string keys for consistancy
+        self.title = title or "" #default to empty str if empty
         self.artist = artist or ""
 
-        # ---- optional/extra metadata
+        # extra data
         self.album = album or ""
         self.genres = list(genres) if genres is not None else []  # avoid shared lists
         self.duration = int(duration)  # seconds
@@ -53,10 +50,9 @@ class Song:
             bpm=data.get("bpm", None),
         )
 
-    # ---------- nice-to-have dunder methods ----------
+
     def __repr__(self):
         return f"Song(id={self.song_id}, title={self.title!r}, artist={self.artist!r})"
 
-    def __eq__(self, other):
-        # two songs are "equal" if they have the same id
+    def __eq__(self, other): #operator overloading
         return isinstance(other, Song) and self.song_id == other.song_id
