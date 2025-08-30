@@ -1,20 +1,241 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>My Song Playlist</title>
-  <link rel="stylesheet" href="style.css"> 
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hybrid Music Recommender (Demo)</title>
+  <style>
+    /* ----------- Basic reset ----------- */
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial; background:#0b0c10; color:#e6e6e6; }
+
+    /* ----------- Layout ----------- */
+    header { position: sticky; top:0; z-index:5; backdrop-filter:saturate(120%) blur(6px); background: rgba(15,16,20,.8); border-bottom:1px solid #222; }
+    .container { display:grid; grid-template-columns: 320px 1fr 360px; gap:16px; padding:16px; }
+    .panel { background:#121318; border:1px solid #1f2230; border-radius:14px; padding:14px; }
+    .panel h2 { margin:4px 0 10px; font-size: 16px; letter-spacing:.3px; color:#cfd3ff; }
+    .muted { color:#9aa0b4; }
+
+    /* ----------- Header ----------- */
+    .hdr { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; }
+    .brand { font-weight:700; letter-spacing:.4px; }
+    .row { display:flex; gap:8px; align-items:center; }
+    select, input[type="text"], input[type="number"], button { 
+      background:#0f1117; color:#e6e6e6; border:1px solid #1f2230; border-radius:10px; padding:8px 10px; outline:none;
+    }
+    button { cursor:pointer; }
+    button.primary { background:#4f46e5; border-color:#4f46e5; }
+    button.ghost { background:transparent; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+
+    /* ----------- Lists / table-ish ----------- */
+    .list { display:flex; flex-direction:column; gap:8px; }
+    .rowline { display:grid; grid-template-columns: 1fr 1fr 70px 170px; gap:8px; align-items:center; background:#0f1117; border:1px solid #1f2230; padding:10px; border-radius:12px; }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+    .chip { font-size:12px; padding:4px 8px; border-radius:999px; background:#181a22; border:1px solid #242635; color:#b8c0ff; }
+
+    .toolbar { display:flex; gap:8px; align-items:center; margin:8px 0; }
+    .stack { display:flex; flex-direction:column; gap:8px; }
+    .section { margin:10px 0; }
+
+    .field { display:flex; gap:8px; }
+    .field label { width:70px; color:#9aa0b4; font-size:13px; padding-top:6px; }
+    .field input { flex:1; }
+
+    .tabbar { display:flex; gap:8px; margin-bottom:8px; }
+    .tabbar button { padding:8px 10px; border-radius:10px; background:#0f1117; border:1px solid #1f2230; }
+    .tabbar button.active { background:#2531a7; border-color:#2531a7; }
+
+    .statbar { display:flex; gap:14px; font-size:13px; color:#9aa0b4; margin-top:6px; }
+
+    .weights { display:grid; grid-template-columns: 60px 1fr 50px; gap:6px; align-items:center; }
+    input[type="range"] { width:100%; }
+
+    .playlist { margin-top:12px; border-top:1px dashed #2a2c3a; padding-top:10px; }
+
+    /* ----------- Responsive ----------- */
+    @media (max-width: 1100px) {
+      .container { grid-template-columns: 1fr; }
+      .rowline { grid-template-columns: 1fr 1fr 70px 170px; }
+    }
+  </style>
 </head>
 <body>
-  <h1>Add a Song</h1>
-  <input type="text" id="title" placeholder="Song Title">
-  <input type="text" id="artist" placeholder="Artist">
-  <input type="text" id="song_id" placeholder="Song ID">
-  <button onclick="addSong()">Add Song</button>
-  <button2 onclick="addweSong()">Add Song</button>
+  <header>
+    <div class="hdr">
+      <div class="row">
+        <div class="brand">♪ Hybrid Music Recommender</div>
+        <span class="muted">(frontend demo)</span>
+      </div>
+      <div class="row">
+        <button id="clearAll" class="ghost" title="Clear local data">Clear storage</button>
+      </div>
+    </div>
+  </header>
 
-  <h2>Playlist</h2>
-  <ul id="songList"></ul>
+  <main class="container">
+    <!-- LEFT: Add & Search -->
+    <section class="panel" id="addPanel">
+      <h2>Add & Search</h2>
 
-  <script src="script.js"></script>
-</body>
-</html>
+      <div class="section">
+        <div class="field">
+          <label for="deezerQuery">Search</label>
+          <input id="deezerQuery" type="text" placeholder="e.g., track:&quot;Love Story&quot; artist:&quot;Taylor Swift&quot;" />
+          <button id="deezerSearchBtn">Import</button>
+        </div>
+        <div class="muted" style="margin-top:6px; font-size:12px;">Demo uses mock results. Replace with <code>fetch('/import-deezer?...')</code> later.</div>
+      </div>
+
+      <div class="section stack" id="deezerResults"></div>
+
+      <div class="section">
+        <h3 class="muted" style="margin:0 0 6px; font-size:13px;">Manual add</h3>
+        <div class="field"><label>Title</label><input id="titleInput" type="text" /></div>
+        <div class="field"><label>Artist</label><input id="artistInput" type="text" /></div>
+        <div class="toolbar">
+          <button id="addManualBtn" class="primary">Add</button>
+          <span class="muted" id="addMsg"></span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="muted" style="margin:0 0 6px; font-size:13px;">Filters</h3>
+        <div class="field"><label>Artist</label><input id="filterArtist" placeholder="e.g., Kendrick" type="text"/></div>
+        <div class="field"><label>Min plays</label><input id="filterPlays" type="number" min="0" value="0"/></div>
+        <div class="toolbar"><button id="applyFiltersBtn">Apply</button><button id="clearFiltersBtn" class="ghost">Clear</button></div>
+      </div>
+
+      <div class="statbar" id="statbar"></div>
+    </section>
+
+    <!-- CENTER: Library + Playlist -->
+    <section class="panel" id="libraryPanel">
+      <h2>Library</h2>
+      <div class="toolbar">
+        <label class="muted">Sort:</label>
+        <select id="sortSelect">
+          <option value="title">Title</option>
+          <option value="artist">Artist</option>
+          <option value="plays_desc">Plays ⬇</option>
+          <option value="rank_desc">Rank ⬇</option>
+        </select>
+      </div>
+      <div class="list" id="libraryList"></div>
+
+      <div class="playlist">
+        <h2>Playlist</h2>
+        <div class="list" id="playlistList"></div>
+        <div class="toolbar">
+          <button id="exportBtn" class="ghost">Export JSON</button>
+          <a id="downloadLink" class="muted" style="display:none; font-size:12px;">Download</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Recommendations -->
+    <section class="panel" id="recsPanel">
+      <h2>Recommendations</h2>
+      <div class="tabbar">
+        <button data-tab="forYou" class="active">For You</button>
+        <button data-tab="similar">Similar</button>
+        <button data-tab="trending">Trending</button>
+      </div>
+
+      <div id="weightsBox" class="stack" style="margin-bottom:10px;">
+        <div class="weights"><span>α (CB)</span><input id="alpha" type="range" min="0" max="1" step="0.1" value="0.6"/><span id="alphaVal">0.6</span></div>
+        <div class="weights"><span>β (CF)</span><input id="beta" type="range" min="0" max="1" step="0.1" value="0.3"/><span id="betaVal">0.3</span></div>
+        <div class="weights"><span>γ (MF)</span><input id="gamma" type="range" min="0" max="1" step="0.1" value="0.1"/><span id="gammaVal">0.1</span></div>
+        <div class="row"><input id="whyToggle" type="checkbox" /><label for="whyToggle" class="muted">Explain why</label></div>
+      </div>
+
+      <div class="section" id="similarBox" style="display:none;">
+        <div class="field"><label>Seed</label><select id="seedSelect"></select></div>
+      </div>
+
+      <div class="list" id="recsList"></div>
+    </section>
+  </main>
+
+  <script>
+    // =============================
+    // Simple state & persistence (single user; always dark)
+    // =============================
+    const LS_SONGS = 'musiclib_songs';
+    const LS_INTERACTIONS = 'musiclib_interactions'; // {song_id: {plays, likes}}
+    const LS_PLAYLIST = 'musiclib_playlist';        // [song_id, ...]
+
+    const state = {
+      songs: [],
+      interactions: {},
+      playlist: [],
+      filters: { artist: '', minPlays: 0 },
+      sort: 'title',
+      tab: 'forYou',        // 'forYou' | 'similar' | 'trending'
+      weights: { alpha: 0.6, beta: 0.3, gamma: 0.1 },
+      explain: false,
+      mockIdCounter: 1000000,
+    };
+
+    // Load from localStorage or seed some demo songs
+    function loadState() {
+      try {
+        state.songs = JSON.parse(localStorage.getItem(LS_SONGS) || '[]');
+        state.interactions = JSON.parse(localStorage.getItem(LS_INTERACTIONS) || '{}');
+        state.playlist = JSON.parse(localStorage.getItem(LS_PLAYLIST) || '[]');
+        if (!state.songs || state.songs.length === 0) seedDemo();
+      } catch (e) { seedDemo(); }
+    }
+
+    function saveState() {
+      localStorage.setItem(LS_SONGS, JSON.stringify(state.songs));
+      localStorage.setItem(LS_INTERACTIONS, JSON.stringify(state.interactions));
+      localStorage.setItem(LS_PLAYLIST, JSON.stringify(state.playlist));
+    }
+
+    function seedDemo() {
+      state.songs = [
+        { song_id:'1', title:'DNA.', artist:'Kendrick Lamar', plays:10, rank:9500, genres:['hip hop'] },
+        { song_id:'2', title:'HUMBLE.', artist:'Kendrick Lamar', plays:15, rank:9300, genres:['hip hop'] },
+        { song_id:'3', title:'Love Story', artist:'Taylor Swift', plays:20, rank:9200, genres:['pop'] },
+        { song_id:'4', title:'Blinding Lights', artist:'The Weeknd', plays:30, rank:9800, genres:['pop'] },
+        { song_id:'5', title:'SICKO MODE', artist:'Travis Scott', plays:18, rank:9100, genres:['hip hop'] },
+        { song_id:'6', title:'bad guy', artist:'Billie Eilish', plays:25, rank:9000, genres:['pop'] },
+        { song_id:'7', title:"God's Plan", artist:'Drake', plays:22, rank:9050, genres:['hip hop'] },
+      ];
+      state.interactions = { '4': { plays: 3, likes: 1 }, '2': { plays:2, likes:1 } };
+      state.playlist = [];
+      saveState();
+    }
+
+    // =============================
+    // Rendering helpers
+    // =============================
+    function render() {
+      renderStats();
+      renderLibrary();
+      renderPlaylist();
+      renderRecs();
+      renderSeedSelect();
+      updateWeightsLabels();
+    }
+
+    function renderStats() {
+      const artists = new Set(state.songs.map(s => s.artist));
+      const totalPlays = state.songs.reduce((acc, s) => acc + (s.plays || 0), 0);
+      document.getElementById('statbar').textContent = `Songs ${state.songs.length} • Artists ${artists.size} • Plays ${totalPlays}`;
+    }
+
+    function filteredSortedSongs() {
+      const { artist, minPlays } = state.filters;
+      let list = state.songs.filter(s => {
+        const okArtist = !artist || s.artist.toLowerCase().includes(artist.toLowerCase());
+        const okPlays = (s.plays || 0) >= (Number(minPlays) || 0);
+        return okArtist && okPlays;
+      });
+      switch (state.sort) {
+        case 'title': list.sort((a,b)=>a.title.localeCompare(b.title)); break;
+        case 'artist': list.sort((a,b)=>a.artist.localeCompare(b.artist)); break;
+        case 'plays_desc': list.sort((a,b)=> (b.plays||0)-(a.plays||0)); break;
+        case 'rank_desc': list.sort(
