@@ -159,10 +159,78 @@ def cf_item_scores() -> Dict[str, float]:
 # ----------------------------------------------------------------------------
 # Hybrid blend (α CB + β CF + γ MF[placeholder] + tiny popularity)
 # ----------------------------------------------------------------------------
+# -------------------- PyTorch MF (single-user, item embeddings) --------------------
+_mf_model = None
+
+class MFItemOnly(nn.Module):
+    def __init__(self, n_items: int, d: int = 32):
+        super().__init__()
+        self.item = nn.Embedding(n_items, d)
+        nn.init.normal_(self.item.weight, std=0.1)
+        # single user vector
+        self.user = nn.Parameter(torch.zeros(d))
+
+    def forward(self, item_idx: torch.Tensor) -> torch.Tensor:
+        e = self.item(item_idx)        # (B, d)
+        return (e @ self.user)         # (B,)
+
+def train_mf(epochs: int = 10, d: int = 32, lr: float = 0.05, neg: int = 5) -> bool:
+    global _mf_model
+    if not _idx_to_id or not interactions:
+        return False
+    pos = [_id_to_idx[sid] for sid in interactions.keys() if sid in _id_to_idx]
+    if not pos:
+        return False
+    n = len(_idx_to_id)
+    unseen = list(set(range(n)) - set(pos))
+    if not unseen:
+        return False
+
+    model = MFItemOnly(n, d)
+    opt = optim.Adam(model.parameters(), lr=lr)
+    loss_fn = nn.BCEWithLogitsLoss()
+
+    for _ in range(epochs):
+        # positives
+        p = torch.tensor(pos, dtype=torch.long)
+        y_pos = torch.ones(len(pos), dtype=torch.float32)
+        # negatives
+        num_neg = max(neg * len(pos), len(pos))
+        neg_idx = np.random.choice(unseen, size=num_neg, replace=len(unseen) < num_neg)
+        n_t = torch.tensor(neg_idx, dtype=torch.long)
+        y_neg = torch.zeros(len(neg_idx), dtype=torch.float32)
+
+        x = torch.cat([p, n_t], dim=0)
+        y = torch.cat([y_pos, y_neg], dim=0)
+        perm = torch.randperm(len(x))
+        x, y = x[perm], y[perm]
+
+        opt.zero_grad()
+        logits = model(x)
+        loss = loss_fn(logits, y)
+        loss.backward()
+        opt.step()
+
+    _mf_model = model
+    return True
+
+def mf_scores() -> dict[str, float]:
+    if _mf_model is None:
+        return {}
+    with torch.no_grad():
+        logits = _mf_model.item.weight @ _mf_model.user
+        # hide seen
+        for sid in interactions.keys():
+            j = _id_to_idx.get(sid)
+            if j is not None:
+                logits[j] = -1e9
+        probs = torch.sigmoid(logits).cpu().numpy()
+        return { _idx_to_id[i]: float(probs[i]) for i in range(len(_idx_to_id)) }
 
 def hybrid_recommend(k: int, alpha: float, beta: float, gamma: float) -> List[Song]:
     cb = content_scores_for_user()
     cf = cf_item_scores()
+    mf = mf_scores()
     pop = { s.song_id: (s.rank or 0) / 100000.0 for s in library.bst.inorder() }
     seen = set(interactions.keys())
 
@@ -171,7 +239,7 @@ def hybrid_recommend(k: int, alpha: float, beta: float, gamma: float) -> List[So
         sid = s.song_id
         if sid in seen:
             continue
-        score = alpha*cb.get(sid, 0.0) + beta*cf.get(sid, 0.0) + gamma*0.0 + pop.get(sid, 0.0)
+        score = alpha*cb.get(sid, 0.0) + beta*cf.get(sid, 0.0) + gamma*mf.get(sid, 0.0) + pop.get(sid, 0.0)
         scores[sid] = score
 
     top = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:k]
@@ -375,3 +443,8 @@ def playlist_export():
         if s.song_id in idset:
             payload.append({"song_id": s.song_id, "title": s.title, "artist": s.artist})
     return payload
+
+@app.post("/train-mf")
+def train_mf_endpoint(epochs: int = 10, d: int = 32, lr: float = 0.05, neg: int = 5):
+    ok = train_mf(epochs=epochs, d=d, lr=lr, neg=neg)
+    return {"ok": bool(ok)}
