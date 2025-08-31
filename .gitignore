@@ -1,0 +1,34 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+
+# macOS & editors
+.DS_Store
+.vscode/
+.idea/
+
+# Local runtime data (keep private)
+library.json
+interactions.json
+playlist.json
+
+# Logs & caches
+*.log
+.cache/
+
+# Build artifacts
+build/
+dist/
+
+# (Optional front-end)
+node_modules/
+*.map
+
+# Env files
+.env
+.env.*
