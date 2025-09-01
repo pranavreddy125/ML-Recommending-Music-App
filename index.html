@@ -20,8 +20,9 @@
     /* ----------- Header ----------- */
     .hdr { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; }
     .brand { font-weight:700; letter-spacing:.4px; }
+
     .row { display:flex; gap:8px; align-items:center; }
-    select, input[type="text"], input[type="number"], button { 
+    select, input[type="text"], input[type="number"], button {
       background:#0f1117; color:#e6e6e6; border:1px solid #1f2230; border-radius:10px; padding:8px 10px; outline:none;
     }
     button { cursor:pointer; }
@@ -42,6 +43,7 @@
     .field { display:flex; gap:8px; }
     .field label { width:70px; color:#9aa0b4; font-size:13px; padding-top:6px; }
     .field input { flex:1; }
+    .field select { flex:1; }
 
     .tabbar { display:flex; gap:8px; margin-bottom:8px; }
     .tabbar button { padding:8px 10px; border-radius:10px; background:#0f1117; border:1px solid #1f2230; }
@@ -57,7 +59,6 @@
     /* ----------- Responsive ----------- */
     @media (max-width: 1100px) {
       .container { grid-template-columns: 1fr; }
-      .rowline { grid-template-columns: 1fr 1fr 70px 170px; }
     }
   </style>
 </head>
@@ -82,10 +83,12 @@
       <div class="section">
         <div class="field">
           <label for="deezerQuery">Search</label>
-          <input id="deezerQuery" type="text" placeholder="e.g., track:&quot;Love Story&quot; artist:&quot;Taylor Swift&quot;" />
+          <input id="deezerQuery" type="text" placeholder='e.g., track:"Love Story" artist:"Taylor Swift"' />
           <button id="deezerSearchBtn">Import</button>
         </div>
-        <div class="muted" style="margin-top:6px; font-size:12px;">Demo uses mock results. Replace with <code>fetch('/import-deezer?...')</code> later.</div>
+        <div class="muted" style="margin-top:6px; font-size:12px;">
+          Imports from your FastAPI backend: <code>POST /import-deezer</code>
+        </div>
       </div>
 
       <div class="section stack" id="deezerResults"></div>
@@ -160,6 +163,35 @@
 
   <script>
     // =============================
+    // Backend config (change API if needed)
+    // =============================
+    const USE_BACKEND = true;                   // flip true/false to switch modes
+    const API = 'http://127.0.0.1:8001';        // FastAPI base URL
+
+    async function api(path, opts = {}) {
+      const res = await fetch(`${API}${path}`, {
+        headers: { 'Content-Type': 'application/json' },
+        ...opts
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    async function syncFromBackend() {
+      try {
+        state.songs = await api('/songs');
+      } catch (e) {
+        console.error('songs fetch failed', e);
+      }
+      try {
+        const items = await api('/playlist');
+        state.playlist = items.map(s => s.song_id);
+      } catch (e) {}
+      saveState();
+      render();
+    }
+
+    // =============================
     // Simple state & persistence (single user; always dark)
     // =============================
     const LS_SONGS = 'musiclib_songs';
@@ -178,7 +210,6 @@
       mockIdCounter: 1000000,
     };
 
-    // Load from localStorage or seed some demo songs
     function loadState() {
       try {
         state.songs = JSON.parse(localStorage.getItem(LS_SONGS) || '[]');
@@ -187,14 +218,13 @@
         if (!state.songs || state.songs.length === 0) seedDemo();
       } catch (e) { seedDemo(); }
     }
-
     function saveState() {
       localStorage.setItem(LS_SONGS, JSON.stringify(state.songs));
       localStorage.setItem(LS_INTERACTIONS, JSON.stringify(state.interactions));
       localStorage.setItem(LS_PLAYLIST, JSON.stringify(state.playlist));
     }
-
     function seedDemo() {
+      // Only used if backend is disabled or returns nothing initially
       state.songs = [
         { song_id:'1', title:'DNA.', artist:'Kendrick Lamar', plays:10, rank:9500, genres:['hip hop'] },
         { song_id:'2', title:'HUMBLE.', artist:'Kendrick Lamar', plays:15, rank:9300, genres:['hip hop'] },
@@ -210,14 +240,19 @@
     }
 
     // =============================
-    // Rendering helpers
+    // Utilities
+    // =============================
+    function escapeHtml(s=''){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    // =============================
+    // Rendering
     // =============================
     function render() {
       renderStats();
       renderLibrary();
       renderPlaylist();
-      renderRecs();
       renderSeedSelect();
+      renderRecs();
       updateWeightsLabels();
     }
 
@@ -238,4 +273,371 @@
         case 'title': list.sort((a,b)=>a.title.localeCompare(b.title)); break;
         case 'artist': list.sort((a,b)=>a.artist.localeCompare(b.artist)); break;
         case 'plays_desc': list.sort((a,b)=> (b.plays||0)-(a.plays||0)); break;
-        case 'rank_desc': list.sort(
+        case 'rank_desc': list.sort((a,b)=> (b.rank||0)-(a.rank||0)); break;
+      }
+      return list;
+    }
+
+    function renderLibrary() {
+      const list = document.getElementById('libraryList');
+      list.innerHTML = '';
+      const rows = filteredSortedSongs();
+      if (rows.length === 0) {
+        list.innerHTML = '<div class="muted">No songs. Try importing from Deezer.</div>';
+        return;
+      }
+      for (const s of rows) {
+        const row = document.createElement('div');
+        row.className = 'rowline';
+        row.innerHTML = `
+          <div><strong>${escapeHtml(s.title)}</strong></div>
+          <div class="muted">${escapeHtml(s.artist)}</div>
+          <div class="muted">${s.plays||0}</div>
+          <div class="row">
+            <button title="Like" data-act="like">♥</button>
+            <button title="Add to playlist" data-act="add">➕</button>
+            <button class="ghost" title="Delete" data-act="del">🗑</button>
+          </div>
+        `;
+        row.querySelector('[data-act="like"]').onclick = () => likeSong(s.song_id);
+        row.querySelector('[data-act="add"]').onclick = () => addToPlaylist(s.song_id);
+        row.querySelector('[data-act="del"]').onclick = () => deleteSong(s.song_id);
+        list.appendChild(row);
+      }
+    }
+
+    function renderPlaylist() {
+      const list = document.getElementById('playlistList');
+      list.innerHTML = '';
+      if (!state.playlist.length) {
+        list.innerHTML = '<div class="muted">Playlist is empty</div>';
+        return;
+      }
+      const order = new Map(state.playlist.map((id, i)=>[id, i]));
+      const items = state.songs.filter(s => order.has(s.song_id)).sort((a,b)=> order.get(a.song_id)-order.get(b.song_id));
+      for (const s of items) {
+        const row = document.createElement('div');
+        row.className = 'rowline';
+        row.innerHTML = `
+          <div><strong>${escapeHtml(s.title)}</strong></div>
+          <div class="muted">${escapeHtml(s.artist)}</div>
+          <div class="muted">${s.plays||0}</div>
+          <div class="row">
+            <button title="Remove" data-act="rm">✖</button>
+          </div>
+        `;
+        row.querySelector('[data-act="rm"]').onclick = () => removeFromPlaylist(s.song_id);
+        list.appendChild(row);
+      }
+    }
+
+    function renderDeezerResults(rows) {
+      const box = document.getElementById('deezerResults');
+      if (!rows || !rows.length) { box.innerHTML = '<div class="muted">No results (try a different query)</div>'; return; }
+      box.innerHTML = '';
+      for (const s of rows) {
+        const div = document.createElement('div');
+        div.className = 'rowline';
+        div.innerHTML = `
+          <div><strong>${escapeHtml(s.title)}</strong></div>
+          <div class="muted">${escapeHtml(s.artist)}</div>
+          <div class="muted">${(s.rank||0)}</div>
+          <div class="row"><span class="muted">Imported ✓</span></div>
+        `;
+        box.appendChild(div);
+      }
+    }
+
+    function renderSeedSelect() {
+      const sel = document.getElementById('seedSelect');
+      sel.innerHTML = '';
+      for (const s of state.songs) {
+        const opt = document.createElement('option');
+        opt.value = s.song_id; opt.textContent = `${s.title} — ${s.artist}`;
+        sel.appendChild(opt);
+      }
+    }
+
+    function updateWeightsLabels() {
+      const a = document.getElementById('alpha');
+      const b = document.getElementById('beta');
+      const g = document.getElementById('gamma');
+      document.getElementById('alphaVal').textContent = a.value;
+      document.getElementById('betaVal').textContent = b.value;
+      document.getElementById('gammaVal').textContent = g.value;
+      state.weights = { alpha: Number(a.value), beta: Number(b.value), gamma: Number(g.value) };
+    }
+
+    // =============================
+    // Recommenders (backend-first; local fallbacks exist)
+    // =============================
+    async function renderRecs() {
+      const list = document.getElementById('recsList');
+      list.innerHTML = '';
+
+      // Show/hide controls per tab
+      document.querySelectorAll('.tabbar button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === state.tab));
+      document.getElementById('weightsBox').style.display = (state.tab === 'forYou') ? 'block' : (state.tab === 'trending' ? 'none' : 'none');
+      document.getElementById('similarBox').style.display = (state.tab === 'similar') ? 'block' : 'none';
+
+      if (state.tab === 'trending') {
+        for (const r of trending(10)) addRow(r);
+        return;
+      }
+
+      if (USE_BACKEND) {
+        try {
+          if (state.tab === 'forYou') {
+            const { alpha, beta, gamma } = state.weights;
+            const recs = await api(`/recommendations?k=10&alpha=${alpha}&beta=${beta}&gamma=${gamma}`);
+            recs.forEach(s => addRow({ song: s, score: (s.rank||0)/10000, why: [] }));
+          } else {
+            const seedId = document.getElementById('seedSelect').value;
+            if (!seedId) { list.innerHTML = '<div class="muted">No songs yet. Import some first.</div>'; return; }
+            const recs = await api(`/similar?song_id=${encodeURIComponent(seedId)}&k=10`);
+            recs.forEach(s => addRow({ song: s, score: (s.rank||0)/10000, why: ['content-similar'] }));
+          }
+          return;
+        } catch (e) {
+          list.innerHTML = `<div class="muted">Error: ${escapeHtml(String(e))}</div>`;
+          return;
+        }
+      }
+
+      // Local fallbacks (not used when backend=true)
+      const items = state.tab === 'forYou'
+        ? recommendForUser(10)
+        : similarTo(document.getElementById('seedSelect').value, 10);
+      items.forEach(addRow);
+
+      function addRow(r) {
+        const row = document.createElement('div');
+        row.className = 'rowline';
+        row.innerHTML = `
+          <div><strong>${escapeHtml(r.song.title)}</strong>
+            ${state.explain && r.why?.length ? `<div class="chips">${r.why.map(w=>`<span class='chip'>${escapeHtml(w)}</span>`).join('')}</div>`: ''}
+          </div>
+          <div class="muted">${escapeHtml(r.song.artist)}</div>
+          <div class="muted">${(r.score||0).toFixed(2)}</div>
+          <div class="row">
+            <button title="Like" data-act="like">♥</button>
+            <button title="Add to playlist" data-act="add">➕</button>
+          </div>
+        `;
+        row.querySelector('[data-act="like"]').onclick = () => likeSong(r.song.song_id);
+        row.querySelector('[data-act="add"]').onclick = () => addToPlaylist(r.song.song_id);
+        list.appendChild(row);
+      }
+    }
+
+    // Local “trending” heuristic (rank + plays)
+    function trending(n=10) {
+      const items = [...state.songs].map(s => ({ song: s, score: (s.rank||0)/10000 + (s.plays||0)/200, why:['popular'] }));
+      items.sort((a,b)=> (b.score)-(a.score));
+      return items.slice(0, n);
+    }
+    // Local similarity (fallback when backend off)
+    function similarTo(seedId, n=10) {
+      const seed = state.songs.find(s => s.song_id === seedId);
+      if (!seed) return [];
+      const items = state.songs.filter(s => s.song_id !== seed.song_id).map(s => {
+        let score = 0;
+        if ((s.artist||'') === (seed.artist||'')) score += 1;
+        const share = intersection((s.genres||[]),(seed.genres||[])).length;
+        score += share * 0.5;
+        score += (s.rank||0)/10000 * 0.2;
+        return { song:s, score, why: ['content-similar'] };
+      });
+      items.sort((a,b)=> (b.score)-(a.score));
+      return items.slice(0, n);
+    }
+    // Local personalized (fallback)
+    function recommendForUser(n=10) {
+      const liked = Object.entries(state.interactions).filter(([id,v]) => v.likes>0).map(([id])=>id);
+      const likedSongs = state.songs.filter(s => liked.includes(s.song_id));
+      const items = state.songs.filter(s => !liked.includes(s.song_id)).map(s => {
+        let score = (s.rank||0)/10000*0.2 + (s.plays||0)/50;
+        for (const l of likedSongs) {
+          if (s.artist === l.artist) score += 1.0;
+          score += intersection((s.genres||[]),(l.genres||[])).length * 0.5;
+        }
+        return { song:s, score, why:[] };
+      });
+      items.sort((a,b)=> (b.score)-(a.score));
+      return items.slice(0, n);
+    }
+    function intersection(a=[], b=[]) { const setB = new Set(b); return a.filter(x=>setB.has(x)); }
+
+    // =============================
+    // Actions (backend-first)
+    // =============================
+    function likeSong(song_id) {
+      if (USE_BACKEND) {
+        api('/events', { method:'POST', body: JSON.stringify({ song_id, kind:'like' }) })
+          .then(()=> renderRecs())
+          .catch(err => console.error('events error', err));
+        return;
+      }
+      const entry = state.interactions[song_id] || { plays:0, likes:0 };
+      entry.likes += 1; state.interactions[song_id] = entry;
+      saveState(); render();
+    }
+
+    function deleteSong(song_id) {
+      if (USE_BACKEND) {
+        api(`/songs/${encodeURIComponent(song_id)}`, { method:'DELETE' })
+          .then(()=> syncFromBackend())
+          .catch(err => console.error('delete error', err));
+        return;
+      }
+      state.songs = state.songs.filter(s => s.song_id !== song_id);
+      delete state.interactions[song_id];
+      state.playlist = state.playlist.filter(id => id !== song_id);
+      saveState(); render();
+    }
+
+    function addToPlaylist(song_id) {
+      if (USE_BACKEND) {
+        api('/playlist/add', { method:'POST', body: JSON.stringify({ song_id }) })
+          .then(()=> { if (!state.playlist.includes(song_id)) state.playlist.push(song_id); renderPlaylist(); })
+          .catch(err => console.error('playlist add error', err));
+        return;
+      }
+      if (!state.playlist.includes(song_id)) state.playlist.push(song_id);
+      saveState(); renderPlaylist();
+    }
+
+    function removeFromPlaylist(song_id) {
+      if (USE_BACKEND) {
+        api('/playlist/remove', { method:'POST', body: JSON.stringify({ song_id }) })
+          .then(()=> { state.playlist = state.playlist.filter(id => id !== song_id); renderPlaylist(); })
+          .catch(err => console.error('playlist remove error', err));
+        return;
+      }
+      state.playlist = state.playlist.filter(id => id !== song_id);
+      saveState(); renderPlaylist();
+    }
+
+    // =============================
+    // Event wiring
+    // =============================
+    document.getElementById('deezerSearchBtn').onclick = async ()=>{
+      const q = document.getElementById('deezerQuery').value.trim();
+      const box = document.getElementById('deezerResults');
+      box.innerHTML = '<div class="muted">Importing…</div>';
+      if (USE_BACKEND) {
+        try {
+          const rows = await api(`/import-deezer?q=${encodeURIComponent(q)}&limit=5`, { method:'POST' });
+          await syncFromBackend();
+          renderDeezerResults(rows);
+        } catch (e) {
+          box.innerHTML = `<div class="muted">Error: ${escapeHtml(String(e))}</div>`;
+        }
+      } else {
+        const rows = await mockDeezerSearch(q, 5);
+        renderDeezerResults(rows);
+      }
+    };
+
+    document.getElementById('addManualBtn').onclick = async ()=>{
+      const title = document.getElementById('titleInput').value.trim();
+      const artist = document.getElementById('artistInput').value.trim();
+      const msg = document.getElementById('addMsg');
+      if (!title || !artist) { msg.textContent = 'need title + artist'; return; }
+      if (USE_BACKEND) {
+        try {
+          await api('/songs', { method:'POST', body: JSON.stringify({ title, artist }) });
+          document.getElementById('titleInput').value = '';
+          document.getElementById('artistInput').value = '';
+          msg.textContent = 'added ✓';
+          await syncFromBackend();
+          setTimeout(()=> msg.textContent = '', 1000);
+          return;
+        } catch (e) {
+          msg.textContent = 'error adding'; console.error('add song error', e); return;
+        }
+      }
+      const song = { song_id: String(state.mockIdCounter++), title, artist, plays:0, rank: Math.floor(Math.random()*10000), genres:[] };
+      state.songs.push(song);
+      document.getElementById('titleInput').value = '';
+      document.getElementById('artistInput').value = '';
+      msg.textContent = 'added ✓';
+      saveState(); render(); setTimeout(()=> msg.textContent = '', 1000);
+    };
+
+    document.getElementById('applyFiltersBtn').onclick = ()=>{
+      state.filters.artist = document.getElementById('filterArtist').value.trim();
+      state.filters.minPlays = Number(document.getElementById('filterPlays').value || 0);
+      renderLibrary();
+    };
+    document.getElementById('clearFiltersBtn').onclick = ()=>{
+      state.filters = { artist:'', minPlays:0 };
+      document.getElementById('filterArtist').value = '';
+      document.getElementById('filterPlays').value = 0;
+      renderLibrary();
+    };
+    document.getElementById('sortSelect').onchange = (e)=>{ state.sort = e.target.value; renderLibrary(); };
+
+    document.getElementById('whyToggle').onchange = (e)=>{ state.explain = e.target.checked; renderRecs(); };
+    document.getElementById('alpha').oninput = ()=>{ updateWeightsLabels(); renderRecs(); };
+    document.getElementById('beta').oninput  = ()=>{ updateWeightsLabels(); renderRecs(); };
+    document.getElementById('gamma').oninput = ()=>{ updateWeightsLabels(); renderRecs(); };
+    document.getElementById('seedSelect').onchange = ()=>{ if (state.tab==='similar') renderRecs(); };
+
+    document.querySelectorAll('.tabbar button').forEach(btn=>{
+      btn.onclick = ()=>{
+        state.tab = btn.dataset.tab;
+        renderRecs();
+      };
+    });
+
+    document.getElementById('exportBtn').onclick = async ()=>{
+      const a = document.getElementById('downloadLink');
+      if (USE_BACKEND) {
+        try {
+          const payload = await api('/playlist/export');
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          a.href = url; a.download = 'playlist.json'; a.textContent = 'Download playlist.json'; a.style.display = 'inline';
+          return;
+        } catch (e) {
+          console.error('export error', e);
+        }
+      }
+      const payload = state.playlist
+        .map(id => state.songs.find(s => s.song_id === id))
+        .filter(Boolean)
+        .map(s => ({ song_id:s.song_id, title:s.title, artist:s.artist }));
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      a.href = url; a.download = 'playlist.json'; a.textContent = 'Download playlist.json'; a.style.display = 'inline';
+    };
+
+    document.getElementById('clearAll').onclick = ()=>{
+      localStorage.removeItem(LS_SONGS);
+      localStorage.removeItem(LS_INTERACTIONS);
+      localStorage.removeItem(LS_PLAYLIST);
+      loadState();
+      if (USE_BACKEND) syncFromBackend(); else render();
+    };
+
+    // =============================
+    // Optional local mock (only used if USE_BACKEND=false)
+    // =============================
+    async function mockDeezerSearch(q, limit=5) {
+      // Fake a list; in backend mode we never hit this.
+      const sample = [
+        { song_id:'dl1', title:'Blinding Lights', artist:'The Weeknd', rank:9800 },
+        { song_id:'dl2', title:'After Hours', artist:'The Weeknd', rank:9200 },
+      ];
+      return sample.slice(0, limit);
+    }
+
+    // =============================
+    // Init
+    // =============================
+    loadState();
+    if (USE_BACKEND) { syncFromBackend(); } else { render(); }
+  </script>
+</body>
+</html>
