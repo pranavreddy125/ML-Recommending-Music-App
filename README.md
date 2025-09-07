@@ -1,68 +1,54 @@
-MusicRecommender: Hybrid ML Music Recommender (Demo)
+# MusicRecommender: Hybrid ML Music Recommender (Demo)
 
 A hybrid recommender that blends content-based song embeddings with collaborative signals to generate ranked, personalized playlists.
 
-Example of the recommender in action will go here (replace with assets/demo.gif or a demo_video.mp4)
+![demo-gif-placeholder](assets/demo.gif)  
+*(Replace with a 60–90s demo GIF or a link to `demo/demo_video.mp4`)*
 
-Features
+---
 
-Hybrid Recommendation
+## Features
 
-Content-based similarity using metadata + audio embeddings (title, artist, genre, acoustic features)
+### Hybrid Recommendation
+- Content-based similarity using metadata + audio embeddings (title, artist, genre, acoustic features)  
+- Collaborative filtering (matrix factorization / implicit feedback) for personalization  
+- Weighted hybrid fusion with configurable blending for cold-start vs. personalization
 
-Collaborative filtering (matrix factorization / implicit feedback) for personalization
+### Playlist & Search
+- Create personalized top-K playlists (`/recommend?user_id=...`)  
+- Search by song metadata and return similar tracks (ANN fallback available)  
+- Export playlist to JSON or local CSV
 
-Weighted hybrid fusion with configurable blending for cold-start vs. personalization
+### Evaluation & Repro
+- Offline metrics: Precision@K, Recall@K, NDCG@K (scripts included)  
+- Train / eval pipelines with fixed random seed and checkpointing (see `configs/`)
 
-Playlist & Search
+### Lightweight Demo UI
+- Static frontend showing search → recommendations → create playlist flow  
+- Demo mode supports a sample user with preloaded listening history
 
-Create personalized top-K playlists (/recommend?user_id=...)
+---
 
-Search by song metadata and return similar tracks (ANN fallback available)
+## Technologies Used
 
-Export playlist to JSON or local CSV
+**Backend / ML**
+- Python 3.10+, PyTorch (models), scikit-learn (baseline transforms)  
+- (Optional) FAISS for approximate nearest neighbors
 
-Evaluation & Repro
+**Frontend**
+- HTML5, CSS3, JavaScript (simple demo UI)
 
-Offline metrics: Precision@K, Recall@K, NDCG@K (scripts included)
+**Serving**
+- FastAPI / Flask (lightweight API endpoints for demo)
 
-Train / eval pipelines with fixed random seed and checkpointing (see configs/)
+**Data**
+- Local CSV / JSON dataset; optional Spotify enrichment script
 
-Lightweight Demo UI
+---
 
-Static frontend showing search → recommendations → create playlist flow
+## Setup Instructions
 
-Demo mode supports a sample user with preloaded listening history
-
-Technologies Used
-
-Backend / ML
-
-Python 3.10+, PyTorch (models), scikit-learn (baseline transforms)
-
-(Optional) FAISS for approximate nearest neighbors
-Frontend
-
-HTML5, CSS3, JavaScript (simple demo UI)
-Serving
-
-FastAPI / Flask (lightweight API endpoint for demo)
-Data
-
-Local CSV / JSON dataset; optional Spotify enrichment script
-
-
-
-Using the application:
-
-Open the demo UI: http://127.0.0.1:5500 (or open frontend/index.html for static demo mode).
-
-Use the Search box to find a song or artist — results show similar tracks and a “Recommend” list.
-
-Click Add → Playlist on tracks you like to build a top-K playlist.
-
-Adjust the Hybrid weight slider to favor content vs. collaborative signals and hit Refresh to see changes.
-
-Export the playlist with Export → JSON/CSV or run python src/recommend.py --user-id <id> --topk 10 for CLI output.
-
-Demo mode: select Sample user in the top-right to load a preloaded listening history and see personalized recommendations without training.
+**Clone the repository**
+```bash
+git clone https://github.com/<your-username>/music-recommender.git
+cd music-recommender
