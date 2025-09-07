@@ -44,9 +44,26 @@ A hybrid recommender that blends content-based song embeddings with collaborativ
 
 ---
 
-## Setup Instructions
+## Using the application
 
-**Clone the repository**
-```bash
-git clone https://github.com/<your-username>/music-recommender.git
-cd music-recommender
+1. **Open the demo UI**  
+   - Open in browser: `http://127.0.0.1:5500`  
+   - Or, for the static demo (no backend): open `frontend/index.html` directly.
+
+2. **Search for a song or artist**  
+   - Type into the **Search** box and press Enter.  
+   - Results show matching tracks and a **Recommend** column/list with similar songs.
+
+3. **Build a playlist**  
+   - Click **Add → Playlist** on tracks you like to add them to the current playlist.  
+   - The playlist panel shows current top-K items and total length.
+
+4. **Tune hybrid behavior**  
+   - Use the **Hybrid weight** slider to favor **Content** (metadata/embeddings) or **Collaborative** (user signals).  
+   - After adjusting the slider, click **Refresh** (or **Re-rank**) to update results.
+
+5. **Export or inspect results**  
+   - Export the playlist via **Export → JSON/CSV** in the UI.  
+   - Or run the CLI to get recommendations (prints JSON / writes to `./output/`):
+   ```bash
+   python src/recommend.py --user-id <id> --topk 10 --checkpoint models/best_checkpoint.pth
