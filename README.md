@@ -1,4 +1,4 @@
-# MusicRecommender: Hybrid ML Music Recommender
+# MelodyMatch: Hybrid ML Music Recommender
 
 A hybrid recommender that blends content-based song embeddings with collaborative signals to generate ranked, personalized playlists.
 
