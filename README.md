@@ -2,8 +2,6 @@
 
 A hybrid recommender that blends content-based song embeddings with collaborative signals to generate ranked, personalized playlists.
 
-![demo-gif-placeholder](assets/demo.gif)  
-*(Replace with a 60–90s demo GIF or a link to `demo/demo_video.mp4`)*
 
 ---
 
