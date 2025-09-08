@@ -20,6 +20,8 @@ playlist.json
 # Logs & caches
 *.log
 .cache/
+# Pip bootstrap script (don’t track this)
+get-pip.py
 
 # Build artifacts
 build/
