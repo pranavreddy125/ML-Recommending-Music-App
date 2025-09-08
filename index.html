@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hybrid Music Recommender (Demo)</title>
+  <title>Music Recommender</title>
   <style>
     /* ----------- Basic reset ----------- */
     * { box-sizing: border-box; }
@@ -42,8 +42,7 @@
 
     .field { display:flex; gap:8px; }
     .field label { width:70px; color:#9aa0b4; font-size:13px; padding-top:6px; }
-    .field input { flex:1; }
-    .field select { flex:1; }
+    .field input, .field select { flex:1; }
 
     .tabbar { display:flex; gap:8px; margin-bottom:8px; }
     .tabbar button { padding:8px 10px; border-radius:10px; background:#0f1117; border:1px solid #1f2230; }
@@ -66,8 +65,7 @@
   <header>
     <div class="hdr">
       <div class="row">
-        <div class="brand">♪ Hybrid Music Recommender</div>
-        <span class="muted">(frontend demo)</span>
+        <div class="brand">♪ Music Recommender</div>
       </div>
       <div class="row">
         <button id="clearAll" class="ghost" title="Clear local data">Clear storage</button>
@@ -150,7 +148,6 @@
         <div class="weights"><span>α (CB)</span><input id="alpha" type="range" min="0" max="1" step="0.1" value="0.6"/><span id="alphaVal">0.6</span></div>
         <div class="weights"><span>β (CF)</span><input id="beta" type="range" min="0" max="1" step="0.1" value="0.3"/><span id="betaVal">0.3</span></div>
         <div class="weights"><span>γ (MF)</span><input id="gamma" type="range" min="0" max="1" step="0.1" value="0.1"/><span id="gammaVal">0.1</span></div>
-        <div class="row"><input id="whyToggle" type="checkbox" /><label for="whyToggle" class="muted">Explain why</label></div>
       </div>
 
       <div class="section" id="similarBox" style="display:none;">
@@ -166,7 +163,7 @@
     // Backend config (change API if needed)
     // =============================
     const USE_BACKEND = true;                   // flip true/false to switch modes
-    const API = 'http://127.0.0.1:8001';        // FastAPI base URL
+    const API = 'http://127.0.0.1:8000';        // FastAPI base URL
 
     async function api(path, opts = {}) {
       const res = await fetch(`${API}${path}`, {
@@ -206,7 +203,7 @@
       sort: 'title',
       tab: 'forYou',        // 'forYou' | 'similar' | 'trending'
       weights: { alpha: 0.6, beta: 0.3, gamma: 0.1 },
-      explain: false,
+      explain: false,       // kept for code simplicity; no checkbox shown
       mockIdCounter: 1000000,
     };
 
@@ -377,7 +374,7 @@
 
       // Show/hide controls per tab
       document.querySelectorAll('.tabbar button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === state.tab));
-      document.getElementById('weightsBox').style.display = (state.tab === 'forYou') ? 'block' : (state.tab === 'trending' ? 'none' : 'none');
+      document.getElementById('weightsBox').style.display = (state.tab === 'forYou') ? 'block' : 'none';
       document.getElementById('similarBox').style.display = (state.tab === 'similar') ? 'block' : 'none';
 
       if (state.tab === 'trending') {
@@ -414,9 +411,7 @@
         const row = document.createElement('div');
         row.className = 'rowline';
         row.innerHTML = `
-          <div><strong>${escapeHtml(r.song.title)}</strong>
-            ${state.explain && r.why?.length ? `<div class="chips">${r.why.map(w=>`<span class='chip'>${escapeHtml(w)}</span>`).join('')}</div>`: ''}
-          </div>
+          <div><strong>${escapeHtml(r.song.title)}</strong></div>
           <div class="muted">${escapeHtml(r.song.artist)}</div>
           <div class="muted">${(r.score||0).toFixed(2)}</div>
           <div class="row">
@@ -578,12 +573,7 @@
     };
     document.getElementById('sortSelect').onchange = (e)=>{ state.sort = e.target.value; renderLibrary(); };
 
-    document.getElementById('whyToggle').onchange = (e)=>{ state.explain = e.target.checked; renderRecs(); };
-    document.getElementById('alpha').oninput = ()=>{ updateWeightsLabels(); renderRecs(); };
-    document.getElementById('beta').oninput  = ()=>{ updateWeightsLabels(); renderRecs(); };
-    document.getElementById('gamma').oninput = ()=>{ updateWeightsLabels(); renderRecs(); };
-    document.getElementById('seedSelect').onchange = ()=>{ if (state.tab==='similar') renderRecs(); };
-
+    // Tab switching
     document.querySelectorAll('.tabbar button').forEach(btn=>{
       btn.onclick = ()=>{
         state.tab = btn.dataset.tab;
@@ -625,7 +615,6 @@
     // Optional local mock (only used if USE_BACKEND=false)
     // =============================
     async function mockDeezerSearch(q, limit=5) {
-      // Fake a list; in backend mode we never hit this.
       const sample = [
         { song_id:'dl1', title:'Blinding Lights', artist:'The Weeknd', rank:9800 },
         { song_id:'dl2', title:'After Hours', artist:'The Weeknd', rank:9200 },
