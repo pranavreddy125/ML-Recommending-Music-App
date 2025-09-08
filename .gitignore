@@ -32,3 +32,17 @@ node_modules/
 # Env files
 .env
 .env.*
+# Virtualenvs and local python envs
+venv/
+env/
+
+# Local model/data artifacts
+models/
+data/
+
+# test / cache
+.pytest_cache/
+.mypy_cache/
+
+# local python version
+.python-version
