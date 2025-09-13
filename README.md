@@ -43,24 +43,7 @@ A hybrid recommender that blends content-based song embeddings with collaborativ
 - Local CSV / JSON dataset; optional Spotify enrichment script
 
 ---
-## How to Run the Music Recommender Project
 
-1. **Clone the Repository**  
-   - git clone https://github.com/<your-username>/<your-repo>.git
-   - cd <your-repo>
-  
-2. **Create a Virtual Environment**  
-   - python3 -m venv .venv
-   - source .venv/bin/activate   # Mac/Linux
-     
-3. **Install Dependencies**  
-   - python -m pip install --upgrade pip setuptools wheel
-   - python -m pip install -r requirements.txt
-   - python -m pip install fastapi uvicorn "scikit-learn" scipy numpy pydantic
-4. **Run the Backend**  
-   - uvicorn api:app --reload
-
----
 ## Using the application
 
 1. **Open the demo UI**  
