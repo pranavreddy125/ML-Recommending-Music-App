@@ -27,7 +27,7 @@ A hybrid recommender that blends content-based song embeddings with collaborativ
 
 ## Demo / Screenshots
 
-### 🔎 Search + Personalized Recommendations
+### 🔎 Overview of UI with Add/Search, Library, and Recommendations
 <img src="demo_ui.png" alt="Demo UI showing search and recommendations" width="80%">
 
 ### 🎵 Similar Song Recommendations
