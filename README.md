@@ -25,6 +25,17 @@ A hybrid recommender that blends content-based song embeddings with collaborativ
 - Static frontend showing search → recommendations → create playlist flow  
 - Demo mode supports a sample user with preloaded listening history
 
+## Demo / Screenshots
+
+### 🔎 Search + Personalized Recommendations
+<img src="demo_ui.png" alt="Demo UI showing search and recommendations" width="80%">
+
+### 🎵 Similar Song Recommendations
+<img src="recommendations.png" alt="Similar songs view" width="50%">
+
+### 📋 Playlist Building & Export
+<img src="playlist.png" alt="Playlist export view" width="80%">
+
 ---
 
 ## Technologies Used
