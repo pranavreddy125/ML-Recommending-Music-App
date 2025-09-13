@@ -84,9 +84,6 @@
           <input id="deezerQuery" type="text" placeholder='e.g., track:"Love Story" artist:"Taylor Swift"' />
           <button id="deezerSearchBtn">Import</button>
         </div>
-        <div class="muted" style="margin-top:6px; font-size:12px;">
-          Imports from your FastAPI backend: <code>POST /import-deezer</code>
-        </div>
       </div>
 
       <div class="section stack" id="deezerResults"></div>
@@ -143,13 +140,7 @@
         <button data-tab="similar">Similar</button>
         <button data-tab="trending">Trending</button>
       </div>
-
-      <div id="weightsBox" class="stack" style="margin-bottom:10px;">
-        <div class="weights"><span>α (CB)</span><input id="alpha" type="range" min="0" max="1" step="0.1" value="0.6"/><span id="alphaVal">0.6</span></div>
-        <div class="weights"><span>β (CF)</span><input id="beta" type="range" min="0" max="1" step="0.1" value="0.3"/><span id="betaVal">0.3</span></div>
-        <div class="weights"><span>γ (MF)</span><input id="gamma" type="range" min="0" max="1" step="0.1" value="0.1"/><span id="gammaVal">0.1</span></div>
-      </div>
-
+      
       <div class="section" id="similarBox" style="display:none;">
         <div class="field"><label>Seed</label><select id="seedSelect"></select></div>
       </div>
@@ -250,7 +241,6 @@
       renderPlaylist();
       renderSeedSelect();
       renderRecs();
-      updateWeightsLabels();
     }
 
     function renderStats() {
@@ -354,17 +344,6 @@
         sel.appendChild(opt);
       }
     }
-
-    function updateWeightsLabels() {
-      const a = document.getElementById('alpha');
-      const b = document.getElementById('beta');
-      const g = document.getElementById('gamma');
-      document.getElementById('alphaVal').textContent = a.value;
-      document.getElementById('betaVal').textContent = b.value;
-      document.getElementById('gammaVal').textContent = g.value;
-      state.weights = { alpha: Number(a.value), beta: Number(b.value), gamma: Number(g.value) };
-    }
-
     // =============================
     // Recommenders (backend-first; local fallbacks exist)
     // =============================
@@ -374,7 +353,6 @@
 
       // Show/hide controls per tab
       document.querySelectorAll('.tabbar button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === state.tab));
-      document.getElementById('weightsBox').style.display = (state.tab === 'forYou') ? 'block' : 'none';
       document.getElementById('similarBox').style.display = (state.tab === 'similar') ? 'block' : 'none';
 
       if (state.tab === 'trending') {
@@ -385,7 +363,7 @@
       if (USE_BACKEND) {
         try {
           if (state.tab === 'forYou') {
-            const { alpha, beta, gamma } = state.weights;
+            const alpha = 0.6, beta = 0.3, gamma = 0.0;
             const recs = await api(`/recommendations?k=10&alpha=${alpha}&beta=${beta}&gamma=${gamma}`);
             recs.forEach(s => addRow({ song: s, score: (s.rank||0)/10000, why: [] }));
           } else {

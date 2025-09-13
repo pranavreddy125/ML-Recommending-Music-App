@@ -155,20 +155,22 @@ def cf_item_scores() -> Dict[str, float]:
     scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-8)
     return { _idx_to_id[i]: float(scores[i]) for i in range(len(scores)) }
 
-# ----------------------------------------------------------------------------
-# Hybrid blend (α CB + β CF + γ MF[placeholder] + tiny popularity)
-# ----------------------------------------------------------------------------
-# -------------------- PyTorch MF (single-user, item embeddings) --------------------
 
-def hybrid_recommend(k: int, alpha: float, beta: float) -> List[Song]:
+# Hybrid blend
+
+
+
+def hybrid_recommend(k: int, alpha: float, beta: float, gamma: float = 0.0) -> List[Song]:
     """
     Hybrid recommendations using:
       - alpha: content-based score weight (CB)
       - beta : collaborative score weight (CF)
+      - gamma: optional popularity / fallback weight (keeps API compatible with older calls)
     MF (PyTorch) removed for demo simplicity.
     """
     cb = content_scores_for_user()    # {song_id: score}
     cf = cf_item_scores()            # {song_id: score}
+    # tiny popularity fallback (rank scaled down so it won't dominate unless gamma large)
     pop = { s.song_id: (s.rank or 0) / 100000.0 for s in library.bst.inorder() }
     seen = set(interactions.keys())
 
@@ -177,13 +179,14 @@ def hybrid_recommend(k: int, alpha: float, beta: float) -> List[Song]:
         sid = s.song_id
         if sid in seen:
             continue
-        # combine normalized CB + CF + tiny popularity term
-        score = alpha * cb.get(sid, 0.0) + beta * cf.get(sid, 0.0) + pop.get(sid, 0.0)
+        # combine normalized CB + CF + optional popularity (gamma)
+        score = alpha * cb.get(sid, 0.0) + beta * cf.get(sid, 0.0) + gamma * pop.get(sid, 0.0)
         scores[sid] = score
 
     top = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:k]
     sid2song = { s.song_id: s for s in library.bst.inorder() }
     return [sid2song[sid] for sid, _ in top if sid in sid2song]
+
 
 # ----------------------------------------------------------------------------
 # Deezer helpers (inline client to avoid extra files)
@@ -318,12 +321,12 @@ def add_event(evt: EventIn):
 # Recommendations & Similar
 # ----------------------------------------------------------------------------
 @app.get("/recommendations", response_model=List[SongOut])
-def recommendations(k: int = 10, alpha: float = 0.6, beta: float = 0.3):
+def recommendations(k: int = 10, alpha: float = 0.6, beta: float = 0.3, gamma: float = 0.0):
     """
     Returns top-k hybrid recommendations.
-    hybrid uses content (alpha) + collaborative (beta).
+    hybrid uses content (alpha) + collaborative (beta) + optional popularity (gamma).
     """
-    recs = hybrid_recommend(k, alpha, beta)
+    recs = hybrid_recommend(k, alpha, beta, gamma)
     return [s.__dict__ for s in recs]
 
 
@@ -379,7 +382,3 @@ def playlist_remove(item: PlaylistEdit):
         _save_json(PLAYLIST_PATH, playlist)
     return {"ok": True, "count": len(playlist)}
 
-@app.get("/recommendations", response_model=List[SongOut])
-def recommendations(k: int = 10, alpha: float = 0.6, beta: float = 0.3):
-    recs = hybrid_recommend(k, alpha, beta)
-    return [s.__dict__ for s in recs]
