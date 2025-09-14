@@ -1,6 +1,6 @@
-# MelodyMatch: Hybrid ML Music Recommender
+# MelodyMatch: Hybrid Music Recommender
 
-A hybrid recommender that blends content-based song embeddings with collaborative signals to generate ranked, personalized playlists.
+A lightweight hybrid recommender that blends content-based metadata with collaborative user signals to generate ranked, personalized playlists.
 
 
 ---
@@ -8,18 +8,14 @@ A hybrid recommender that blends content-based song embeddings with collaborativ
 ## Features
 
 ### Hybrid Recommendation
-- Content-based similarity using metadata + audio embeddings (title, artist, genre, acoustic features)  
-- Collaborative filtering (matrix factorization / implicit feedback) for personalization  
-- Weighted hybrid fusion with configurable blending for cold-start vs. personalization
+- Content-based similarity using song metadata (title, artist, genre, acoustic features)  
+- Collaborative filtering based on user-song interactions  
+- Weighted hybrid fusion
 
-### Playlist & Search
-- Create personalized top-K playlists (`/recommend?user_id=...`)  
-- Search by song metadata and return similar tracks (ANN fallback available)  
+### Playlist & Search 
+- Search by song metadata and return similar tracks
+- Create personalized playlists 
 - Export playlist to JSON or local CSV
-
-### Evaluation & Repro
-- Offline metrics: Precision@K, Recall@K, NDCG@K (scripts included)  
-- Train / eval pipelines with fixed random seed and checkpointing (see `configs/`)
 
 ### Lightweight Demo UI
 - Static frontend showing search → recommendations → create playlist flow  
@@ -41,17 +37,17 @@ A hybrid recommender that blends content-based song embeddings with collaborativ
 ## Technologies Used
 
 **Backend / ML**
-- Python 3.10+, PyTorch (models), scikit-learn (baseline transforms)  
-- (Optional) FAISS for approximate nearest neighbors
+- Python 3.10+
+- scikit-learn (baseline models) 
 
 **Frontend**
-- HTML5, CSS3, JavaScript (simple demo UI)
+- HTML5, CSS3, JavaScript
 
 **Serving**
-- FastAPI / Flask (lightweight API endpoints for demo)
+- FastAPI / Flask for lightweight API endpoints
 
 **Data**
-- Local CSV / JSON dataset; optional Spotify enrichment script
+- Local CSV / JSON dataset (library, interactions, playlists
 
 ---
 
@@ -67,13 +63,9 @@ A hybrid recommender that blends content-based song embeddings with collaborativ
 
 3. **Build a playlist**  
    - Click **Add → Playlist** on tracks you like to add them to the current playlist.  
-   - The playlist panel shows current top-K items and total length.
+   - The playlist panel updates with current selections and length.
 
-4. **Tune hybrid behavior**  
-   - Use the **Hybrid weight** slider to favor **Content** (metadata/embeddings) or **Collaborative** (user signals).  
-   - After adjusting the slider, click **Refresh** (or **Re-rank**) to update results.
-
-5. **Export or inspect results**  
+4. **Export or inspect results**  
    - Export the playlist via **Export → JSON/CSV** in the UI.  
    - Or run the CLI to get recommendations (prints JSON / writes to `./output/`):
    ```bash
