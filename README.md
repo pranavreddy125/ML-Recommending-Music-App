@@ -47,7 +47,8 @@ A lightweight hybrid recommender that blends content-based metadata with collabo
 - FastAPI / Flask for lightweight API endpoints
 
 **Data**
-- Local CSV / JSON dataset (library, interactions, playlists
+- Local CSV / JSON dataset (library, interactions, playlists)
+- Deezer API for metadata enrichment 
 
 ---
 
